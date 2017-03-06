@@ -41,7 +41,7 @@ public:
 
     void windowDestroyed(QQuickWindow *window);
 
-    void renderWindow(QQuickWindow *window);
+    void renderWindow(QQuickWindow *window, bool isNewExpose = false);
     void exposureChanged(QQuickWindow *window);
     QImage grab(QQuickWindow *window);
 

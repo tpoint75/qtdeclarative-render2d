@@ -86,7 +86,7 @@ void RenderLoop::windowDestroyed(QQuickWindow *window)
     }
 }
 
-void RenderLoop::renderWindow(QQuickWindow *window)
+void RenderLoop::renderWindow(QQuickWindow *window, bool isNewExpose)
 {
     QQuickWindowPrivate *cd = QQuickWindowPrivate::get(window);
     if (!cd->isRenderable() || !m_windows.contains(window))
@@ -148,7 +148,10 @@ void RenderLoop::renderWindow(QQuickWindow *window)
 
     if (alsoSwap && window->isVisible()) {
         //Flush backingstore to window
-        m_backingStores[window]->flush(softwareRenderer->flushRegion());
+        if (!isNewExpose)
+            m_backingStores[window]->flush(softwareRenderer->flushRegion());
+        else
+            m_backingStores[window]->flush(QRegion(QRect(QPoint(0,0), window->size())));
         cd->fireFrameSwapped();
     }
 
@@ -178,7 +181,7 @@ void RenderLoop::exposureChanged(QQuickWindow *window)
 {
     if (window->isExposed()) {
         m_windows[window].updatePending = true;
-        renderWindow(window);
+        renderWindow(window, true);
     }
 }
 

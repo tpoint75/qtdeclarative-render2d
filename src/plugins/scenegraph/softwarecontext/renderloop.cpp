@@ -20,7 +20,6 @@
 
 #include "context.h"
 #include <private/qquickwindow_p.h>
-#include <QElapsedTimer>
 #include <private/qquickprofiler_p.h>
 #include <QCoreApplication>
 #include <qpa/qplatformbackingstore.h>
@@ -88,6 +87,13 @@ void RenderLoop::windowDestroyed(QQuickWindow *window)
 
 void RenderLoop::renderWindow(QQuickWindow *window, bool isNewExpose)
 {
+        qreal fps = 0;
+        if(m_updTimer.isValid())
+            fps = 1000 / m_updTimer.elapsed();
+        if(fps > 40) //24 + 16 (1/60fps)
+            return;
+        m_updTimer.start();
+
     QQuickWindowPrivate *cd = QQuickWindowPrivate::get(window);
     if (!cd->isRenderable() || !m_windows.contains(window))
         return;

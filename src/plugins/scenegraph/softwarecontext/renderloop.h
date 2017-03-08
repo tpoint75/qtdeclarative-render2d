@@ -24,6 +24,7 @@
 #undef QT_OPENGL_ES_3
 
 #include <private/qsgrenderloop_p.h>
+#include <QElapsedTimer>
 
 QT_BEGIN_NAMESPACE
 
@@ -70,6 +71,8 @@ public:
     QSGRenderContext *rc;
 
     QImage grabContent;
+
+    QElapsedTimer m_updTimer;
 };
 
 QT_END_NAMESPACE

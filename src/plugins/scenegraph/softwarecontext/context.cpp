@@ -41,9 +41,6 @@
 #include <private/qsgdistancefieldglyphnode_p_p.h>
 #include <private/qsgdefaultglyphnode_p.h>
 
-#ifndef QSG_NO_RENDERER_TIMING
-static bool qsg_render_timing = !qgetenv("QSG_RENDER_TIMING").isEmpty();
-#endif
 
 // Used for very high-level info about the renderering and gl context
 // Includes GL_VERSION, type of render loop, atlas size, etc.

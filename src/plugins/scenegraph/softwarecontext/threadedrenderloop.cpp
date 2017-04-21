@@ -43,6 +43,7 @@
 #include <private/qquickprofiler_p.h>
 #include <private/qqmldebugservice_p.h>
 #include "context.h"
+#include "renderer.h"
 
 /*
    Overall design:
@@ -107,9 +108,10 @@ static inline int qsgrl_animation_interval() {
     qreal refreshRate = QGuiApplication::primaryScreen()->refreshRate();
     // To work around that some platforms wrongfully return 0 or something
     // bogus for refreshrate
-    if (refreshRate < 1)
-        return 16;
-    return int(1000 / refreshRate);
+    //if (refreshRate < 1)
+    //    return 16;
+    qDebug()<<"refreshRate"<<refreshRate;
+    return 33;//int(1000 / refreshRate);
 }
 
 
@@ -308,9 +310,10 @@ public:
     QWaitCondition waitCondition;
 
     QElapsedTimer m_timer;
+    QElapsedTimer m_updTimer;
 
     QQuickWindow *window; // Will be 0 when window is not exposed
-    QSize windowSize;
+    QBackingStore *backingStore = nullptr;
 
     // Local event queue stuff...
     bool stopEventProcessing;
@@ -334,6 +337,8 @@ bool RenderThread::event(QEvent *e)
 
             qCDebug(QSG_RASTER_LOG_RENDERLOOP) << QSG_RT_PAD << "- window removed";
             window = 0;
+            delete backingStore;
+            backingStore = nullptr;
         }
         waitCondition.wakeOne();
         mutex.unlock();
@@ -346,7 +351,10 @@ bool RenderThread::event(QEvent *e)
         if (sleeping)
             stopEventProcessing = true;
         window = se->window;
-        windowSize = se->size;
+        if (backingStore == nullptr)
+            backingStore = new QBackingStore(window);
+        if (backingStore->size() != window->size())
+            backingStore->resize(window->size());
 
         pendingUpdate |= SyncRequest;
         if (se->syncInExpose) {
@@ -383,11 +391,14 @@ bool RenderThread::event(QEvent *e)
         if (window) {
             qCDebug(QSG_RASTER_LOG_RENDERLOOP) << QSG_RT_PAD << "- sync scene graph";
             QQuickWindowPrivate *d = QQuickWindowPrivate::get(window);
-            static_cast<SoftwareContext::RenderContext*>(d->context)->currentWindow = window;
+            auto softwareRenderer = static_cast<SoftwareContext::Renderer*>(d->renderer);
+                        if (softwareRenderer)
+                            softwareRenderer->setBackingStore(backingStore);
+
             d->syncSceneGraph();
 
             qCDebug(QSG_RASTER_LOG_RENDERLOOP) << QSG_RT_PAD << "- rendering scene graph";
-            QQuickWindowPrivate::get(window)->renderSceneGraph(windowSize);
+            d->renderSceneGraph(window->size());
 
             qCDebug(QSG_RASTER_LOG_RENDERLOOP) << QSG_RT_PAD << "- grabbing result";
             *ce->image = static_cast<SoftwareContext::Renderer*>(d->renderer)->backingStore()->handle()->toImage();
@@ -422,12 +433,8 @@ void RenderThread::sync(bool inExpose)
 
     Q_ASSERT_X(wm->m_lockedForSync, "RenderThread::sync()", "sync triggered on bad terms as gui is not already locked...");
 
-    bool current = false;
-    if (windowSize.width() > 0 && windowSize.height() > 0)
-        current = true;
-    if (current) {
+    if (window) {
         QQuickWindowPrivate *d = QQuickWindowPrivate::get(window);
-        static_cast<SoftwareContext::RenderContext*>(d->context)->currentWindow = window;
         bool hadRenderer = d->renderer != 0;
         // If the scene graph was touched since the last sync() make sure it sends the
         // changed signal.
@@ -499,16 +506,30 @@ void RenderThread::syncAndRender()
         d->animationController->unlock();
     }
 
-    bool current = false;
-    if (d->renderer && windowSize.width() > 0 && windowSize.height() > 0)
-        current = true;
-    if (current) {
-        static_cast<SoftwareContext::RenderContext*>(d->context)->currentWindow = window;
-        d->renderSceneGraph(windowSize);
+    qreal fps = 0;
+    if(m_updTimer.isValid()) {
+        if(m_updTimer.elapsed() > 0)
+        fps = 1000 / m_updTimer.elapsed();
+    } else {
+        m_updTimer.start();
+    }
+
+    bool canRender = d->renderer != nullptr;
+    if (canRender && fps <= 25) {
+        auto softwareRenderer = static_cast<SoftwareContext::Renderer*>(d->renderer);
+        if (softwareRenderer)
+            softwareRenderer->setBackingStore(backingStore);
+
+        d->renderSceneGraph(window->size());
+
+        if (softwareRenderer && (!d->customRenderStage || !d->customRenderStage->swap()))
+                    backingStore->flush(softwareRenderer->flushRegion());
+
         if (profileFrames)
             renderTime = threadTimer.nsecsElapsed();
         // ### used to be swappBuffers here
         d->fireFrameSwapped();
+        m_updTimer.start();
     } else {
         qCDebug(QSG_RASTER_LOG_RENDERLOOP) << QSG_RT_PAD << "- window not ready, skipping render";
     }

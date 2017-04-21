@@ -50,6 +50,7 @@ public:
 
     void setCurrentPaintDevice(QPaintDevice *device);
     void setBackingStore(QBackingStore *backingStore);
+    QBackingStore* backingStore() {return m_backingStore;}
     QRegion flushRegion() const;
 
 protected:

@@ -25,6 +25,7 @@
 #undef QT_OPENGL_ES_3
 
 #include <private/qsgrenderloop_p.h>
+#include <qbackingstore.h>
 
 QT_BEGIN_NAMESPACE
 

@@ -108,10 +108,10 @@ static inline int qsgrl_animation_interval() {
     qreal refreshRate = QGuiApplication::primaryScreen()->refreshRate();
     // To work around that some platforms wrongfully return 0 or something
     // bogus for refreshrate
-    //if (refreshRate < 1)
-    //    return 16;
+    if (refreshRate < 1)
+        return 16;
     qDebug()<<"refreshRate"<<refreshRate;
-    return 33;//int(1000 / refreshRate);
+    return int(1000 / refreshRate);
 }
 
 
@@ -470,6 +470,14 @@ void RenderThread::syncAndRender()
         threadTimer.start();
     }
 
+    qreal fps = 0;
+    if(m_updTimer.isValid()) {
+        if(m_updTimer.elapsed() > 0)
+        fps = 1000 / m_updTimer.elapsed();
+    } else {
+        m_updTimer.start();
+    }
+
     QElapsedTimer waitTimer;
     waitTimer.start();
 
@@ -500,22 +508,15 @@ void RenderThread::syncAndRender()
 
     QQuickWindowPrivate *d = QQuickWindowPrivate::get(window);
 
-    if (animatorDriver->isRunning()) {
+    if (animatorDriver->isRunning() && fps <= 25) {
         d->animationController->lock();
         animatorDriver->advance();
         d->animationController->unlock();
     }
 
-    qreal fps = 0;
-    if(m_updTimer.isValid()) {
-        if(m_updTimer.elapsed() > 0)
-        fps = 1000 / m_updTimer.elapsed();
-    } else {
-        m_updTimer.start();
-    }
-
     bool canRender = d->renderer != nullptr;
     if (canRender && fps <= 25) {
+        emit window->BeforeRenderingStage;
         auto softwareRenderer = static_cast<SoftwareContext::Renderer*>(d->renderer);
         if (softwareRenderer)
             softwareRenderer->setBackingStore(backingStore);

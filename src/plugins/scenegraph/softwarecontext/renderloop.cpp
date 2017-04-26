@@ -87,14 +87,6 @@ void RenderLoop::windowDestroyed(QQuickWindow *window)
 
 void RenderLoop::renderWindow(QQuickWindow *window, bool isNewExpose)
 {
-    qreal fps = 0;
-    if(m_updTimer.isValid())
-        if(m_updTimer.elapsed() > 0)
-            fps = 1000 / m_updTimer.elapsed();
-    if(fps > 25) //max FPS
-        return;
-    m_updTimer.start();
-
     QQuickWindowPrivate *cd = QQuickWindowPrivate::get(window);
     if (!cd->isRenderable() || !m_windows.contains(window))
         return;
@@ -134,6 +126,19 @@ void RenderLoop::renderWindow(QQuickWindow *window, bool isNewExpose)
     emit window->afterAnimating();
 
     cd->syncSceneGraph();
+
+    qreal fps = 0;
+    if(m_updTimer.isValid()) {
+        if(m_updTimer.elapsed() > 0) {
+            fps = 1000 / m_updTimer.elapsed();
+        } else {
+            return;
+        }
+    }
+    if(fps > 25) //max FPS
+        return;
+    m_updTimer.start();
+    emit window->BeforeRenderingStage;
 
     if (profileFrames)
         syncTime = renderTimer.nsecsElapsed();

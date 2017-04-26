@@ -27,6 +27,7 @@
 #include <private/qsgrenderloop_p.h>
 #include <qbackingstore.h>
 
+
 QT_BEGIN_NAMESPACE
 
 class RenderThread;
